@@ -155,6 +155,158 @@ comment = re.compile(r'/\*(.*?)\*/', re.DOTALL) # If possible avoid using flags
 comment.findall(text2)
 
 
+# To make sure that all of the Unicode strings have the same underlying representation.
+s1 = 'Spicy Jalape\u00f1o'
+s2 = 'Spicy Jalapen\u0303o'
+print(s1,len(s1))
+print(s2,len(s2))
+s1 == s2 # “Spicy Jalapeño” has 2 representations and both are not the same
+
+# TO fix this we should first normalize the string using unicodedata module
+import unicodedata
+t1 = unicodedata.normalize('NFC', s1) # fully composed
+t2 = unicodedata.normalize('NFC', s2)
+t1 == t2
+print(ascii(t1), ascii(t2))
+
+t3 = unicodedata.normalize('NFD', s1) # fully decomposed
+t4 = unicodedata.normalize('NFD', s2)
+t3 == t4
+print(ascii(t3), ascii(t4))
+
+# Remove all diacritical marks from the text for sanitizing and filtering
+t1 = unicodedata.normalize('NFD', s1)
+''.join(c for c in t1 if not unicodedata.combining(c)) # combining() tests characters against character class
+
+
+# Stripping unwanted characters from strings, strip() is used to strip from beginning or end of a string
+# Using lstrip and rstrip by default strips leading or trailing spaces
+# But we can specify the character to be stripped
+t = '-----hello====='
+t.rstrip('=')
+t.lstrip('-') 
+t.strip('=-')
+
+# We cannot strip at the middle of a string
+s = ' hello                 world \n'
+s.strip()
+# Use regex or replace for inner characters
+s.replace(' ', '')
+
+import re
+re.sub(r'\s+', ' ', s)
+
+
+# Sanitizing and Cleaning Up Text
+s = 'pýtĥöñ\fis\tawesome\r\n'
+
+# For simple replacement str.replace() is better and for any non trivial character to character remapping or deletion use translate()
+# for translate we give a dictionary as input
+remap = {ord('\t') : ' ',
+ord('\f') : ' ',
+ord('\r') : None # Deleted
+}
+a = s.translate(remap)
+a
+
+# We can extend this further by removing all the combining characters
+import unicodedata
+import sys
+# We are creating a dictionary of combining chars as keys and NONE as values
+cmd_chars = dict.fromkeys(c for c in range(sys.maxunicode) if unicodedata.combining(chr(c)))
+# First we decompose the combining chars and then translate
+b = unicodedata.normalize('NFD', a)
+b
+b.translate(cmd_chars)
+
+# for digits
+digitmap = { c: ord('0') + unicodedata.digit(chr(c)) for c in range(sys.maxunicode) if unicodedata.category(chr(c)) == 'Nd' }
+len(digitmap)
+x = '\u0661\u0662\u0663'
+x
+x.translate(digitmap)
+
+
+# I/O decoding and encoding to strip or alter the data. Onlly if getting the text in ASCII format is the final goal
+a
+b = unicodedata.normalize('NFD', a)
+b.encode('ascii', 'ignore').decode('ascii')
+
+
+# Aligning strings: ljust(), rjust(), center()
+text = 'Hello World'
+text.ljust(20) # 20 is the len of the final string
+text.rjust(20, '*')
+text.center(20)
+
+# Format can also be used for aligning strings using >,<,^ for rjust, ljust, center respectively
+format(text, '>20')
+format(text, '+>20s')# for fillina +
+
+'{:>10.2s} {:>10.2s}'.format('Hello', 'World')
+
+'{:3.2f}, {:20.10f}'.format(100.345678, 100.0)
+
+
+# Combining and Concatenating Strings
+# Fastest way is to use join()
+# Using + for concatenating a lot of string is very inefficient
+parts = ['Is', 'Chicago', 'Not', 'Chicago?']
+" ".join(str(p) for p in parts) # Using generator is more efficient
+
+# use print's capability 
+print('a', 'b', 'c', sep=':')
+
+# if you’re writing code that is building output from lots of small strings,
+# you might consider writing that code as a generator function, using yield to emit fragments.
+def sample():
+    yield 'Is'
+    yield 'Chicago'
+    yield 'Not'
+    yield 'Chicago?'
+
+# Smart method about combining I/O operations based on a maxsize
+# Version 1 (string concatenation)
+f.write(chunk1 + chunk2) # Better when chunk1 and chunk2 are small
+# Version 2 (separate I/O operations)
+f.write(chunk1) # Better when chunk1 and chunk2 are big
+f.write(chunk2)
+
+def combine(source, maxsize):
+    parts = []
+    size = 0
+    for part in source:
+        parts.append(part)
+        size += len(part)
+        if size > maxsize:
+            yield ''.join(parts)
+            parts = []
+            size = 0
+    yield ''.join(parts)
+for part in combine(sample(),32768):
+    f.write(part)
+
+
+# Interpolating Variables in Strings
+s = '{name} has {n} messages.'
+s.format(name='hello', n=10) # format_map can also be used
+
+
+# Reformatting Text to a Fixed Number of Columns
+# textwrap module can be used
+s = "Look into my eyes, look into my eyes, the eyes, the eyes, \
+the eyes, not around the eyes, don't look around the eyes, \
+look into my eyes, you're under."
+
+import textwrap
+print(textwrap.fill(s,60))
+print(textwrap.fill(s,30, initial_indent='    '))
+print(textwrap.fill(s,30, subsequent_indent='    '))
+
+
+# 
+
+
 
 
 
