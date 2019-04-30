@@ -452,29 +452,88 @@ s.shares = -10
 s.name = 'ABRACADABRA'
 
 
+# Implementing Custom Containers
+import collections
+import bisect
+class SortedItems(collections.Sequence):
+    def __init__(self, initial=None):
+        self._items = sorted(initial) if initial is not None else []
+    # Required sequence methods
+    def __getitem__(self, index):
+        return self._items[index]
+    def __len__(self):
+        return len(self._items)
+    # Method for adding an item in the right location
+    def add(self, item):
+        bisect.insort(self._items, item) # The bisect.insort() inserts an item into a list so that the list remains in order
+
+items = SortedItems([5, 1, 3])
+items.add(2)
+items.add(20)
+list(items)
 
 
 
+# Defining More Than One Constructor in a Class using a class method
+import time
+
+class Date:
+    def __init__(self, year, month, day):
+        self.year = year
+        self.month = month
+        self.day = day
+    
+    @classmethod    # Alternate constructor
+    def today(cls):
+        t = time.localtime()
+        return cls(t.tm_year, t.tm_mon, t.tm_mday)
+
+a = Date(2012, 12, 21) # Primary
+b = Date.today() # Alternate
+
+# A critical feature of a class method is that it receives the class as the first
+# argument (cls). You will notice that this class is used within the method to create and
+# return the final instance. It is extremely subtle, but this aspect of class methods makes
+# them work correctly with features such as inheritance.
+class NewDate(Date):
+    pass
+
+c = Date.today() # Creates an instance of Date (cls=Date)
+d = NewDate.today() # Creates an instance of NewDate (cls=NewDate)
+  
 
 
+# Calling a Method on an Object Given the Name As a String
+# Using getattr()
+import math
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return 'Point({!r:},{!r:})'.format(self.x, self.y)
+    def distance(self, x, y):
+        return math.hypot(self.x - x, self.y - y)
+p = Point(2, 3)
+d = getattr(p, 'distance')(0, 0) # Calls p.distance(0, 0)
 
+# Using operator.methodcaller()
+import operator
+# operator.methodcaller() creates a callable object, but also fixes any arguments that
+# are going to be supplied to the method. All that you need to do is provide the appropriate self argument.
+operator.methodcaller('distance', 0, 0)(p)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# operator.methodcaller() may be useful if you want to look up a method by name and supply the same arguments over and over again.\
+points = [
+Point(1, 2),
+Point(3, 0),
+Point(10, -3),
+Point(-5, -7),
+Point(-1, 8),
+Point(3, 2)
+]
+# Sort by distance from origin (0, 0)
+points.sort(key=operator.methodcaller('distance', 0, 0))
 
 
 
