@@ -11,3 +11,24 @@ dental_info_df = dental_info_df.drop("Plan_ID")
 
 # Show the final DataFrame
 dental_info_df.show(10, truncate=False)
+
+
+from pyspark.sql.functions import col, when, row_number
+from pyspark.sql.window import Window
+
+# Define your 6 target columns (replace with actual column names)
+target_cols = ["col1", "col2", "col3", "col4", "col5", "col6"]
+
+# Build the non-null count expression inline
+non_null_expr = sum(when(col(c).isNotNull(), 1).otherwise(0) for c in target_cols)
+
+# Apply window and filtering in one go
+window_spec = Window.partitionBy("npi").orderBy(non_null_expr.desc())
+
+# Add row number and filter only top 1 per NPI
+dental_info_df = (
+    dental_info_df
+    .withColumn("rn", row_number().over(window_spec))
+    .filter("rn = 1")
+    .drop("rn")
+)
