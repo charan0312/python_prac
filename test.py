@@ -1,61 +1,56 @@
-from pyspark.sql.functions import explode, col
+I'm seeing this warning while creating this stored procedure in teradata. 
+[Teradata Database] [5526] SPL5000:W(L40), E(3813):The positional assignment list has too many values.
 
-# Step 1: Add "Plan_ID" while keeping all columns
-dental_info_df = dental_info_df.withColumn("Plan_ID", explode(col("networkcode")))
+This is the error after execution: SQLSTATE : 42000 SQLCODE :   3813
 
-# Step 2: Filter based on "Plan_ID"
-dental_info_df = dental_info_df.filter(dental_info_df["Plan_ID"].isin(["CD005", "CP023", "PA027"]))
+Fix this Stored procedure:
 
-# Step 3: Drop "Plan_ID" after filtering
-dental_info_df = dental_info_df.drop("Plan_ID")
+REPLACE PROCEDURE  HSLABCORNERSTONE.SP_DMOM_sPayer_sDIRECTORY_PRACTICES_RECON()
 
-# Show the final DataFrame
-dental_info_df.show(10, truncate=False)
-
-
-from pyspark.sql.functions import col, when, row_number
-from pyspark.sql.window import Window
-
-# Define your 6 target columns (replace with actual column names)
-target_cols = ["col1", "col2", "col3", "col4", "col5", "col6"]
-
-# Build the non-null count expression inline
-non_null_expr = sum(when(col(c).isNotNull(), 1).otherwise(0) for c in target_cols)
-
-# Apply window and filtering in one go
-window_spec = Window.partitionBy("npi").orderBy(non_null_expr.desc())
-
-# Add row number and filter only top 1 per NPI
-dental_info_df = (
-    dental_info_df
-    .withColumn("rn", row_number().over(window_spec))
-    .filter("rn = 1")
-    .drop("rn")
-)
+SQL SECURITY INVOKER
+MAIN: BEGIN
+DECLARE EXIT HANDLER
+   FOR SQLEXCEPTION
+    BEGIN
+      INSERT INTO HSLABCORNERSTONE.DMOM_SDIR_RECON_LOAD_LOGS VALUES('SPAYER_PRACTICES_RECON',CURRENT_TIMESTAMP,-1,'SQLSTATE : '||:SQLSTATE||' SQLCODE : '||:SQLCODE);
+    END;
 
 
-
-from pyspark.sql.functions import col, when, row_number
-from pyspark.sql.window import Window
-
-# Your 6 target columns
-target_cols = ["col1", "col2", "col3", "col4", "col5", "col6"]
-
-# Build expression to count non-null values
-non_null_expr = sum(when(col(c).isNotNull(), 1).otherwise(0) for c in target_cols)
-
-# Inline conditional partitioning logic inside the window spec
-window_spec = Window.partitionBy(
-    when(col("npi").isNotNull(), col("npi")).otherwise(col("providerId"))
-).orderBy(non_null_expr.desc())
-
-# Apply row_number and filter top row per group
-dental_info_df = (
-    dental_info_df
-    .withColumn("rn", row_number().over(window_spec))
-    .filter("rn = 1")
-    .drop("rn")
-)
+INSERT INTO HSLABCORNERSTONE.DMOM_SDIR_RECON_LOAD_LOGS VALUES ('SPAYER_PRACTICES_RECON',CURRENT_TIMESTAMP,1,'SPAYER_PRACTICES_RECON Begin');
 
 
+-- DELETE EXISITNG DATA FROM TABLE
+DELETE FROM HSLABCORNERSTONE.DMOM_SPAYER_SDIRECTORY_PRACTICES_FALLOUT;
+
+-- INSERT RECORDS FROM Source TABLE for PRACTICELOCATIONS
+INSERT INTO HSLABCORNERSTONE.DMOM_SPAYER_SDIRECTORY_PRACTICES_FALLOUT
+select DISTINCT pl.*,
+       CASE
+          WHEN sdl.ExternalCode is NULL
+          THEN
+             'Record Missing in OSS'
+          WHEN COALESCE (a.LineNumber1, '') <>
+              COALESCE (sdla.Address1, '')
+          THEN
+             'Address Not matching in OSS'
+       END AS comments
+FROM PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_practicelocations pl
+left join PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_Addresses a
+on pl.AddressID = a.AddressID
+inner join HSLABCORNERSTONE.PROV_SDIR_Location sdl
+on pl.LocationID = sdl.ExternalCode
+left join HSLABCORNERSTONE.PROV_SDIR_LocationAddress sdla
+on sdl.LocationID = sdla.LocationID
+--left join HSLABCORNERSTONE.PROV_SDIR_LocationSchedule sdls
+--on sdl.LocationID = sdls.LocationID
+WHERE 
+sdl.ExternalCode is NULL;
+           --OR COALESCE (a.LineNumber1, '') <>
+            --  COALESCE (sdla.Address1, '');
+              
+
+INSERT INTO HSLABCORNERSTONE.DMOM_SDIR_RECON_LOAD_LOGS VALUES ('SPAYER_PRACTICES_RECON',CURRENT_TIMESTAMP,2,'SPAYER_PRACTICES_RECON Completed');
+
+END;
+    
 
