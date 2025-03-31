@@ -1,28 +1,27 @@
-SELECT
-    lh.LocationID,
-    lh.DayOfWeekID,
-    lh.StartTime,
-    lh.EndTime,
-    CASE
-        WHEN MAX(CASE WHEN sdlos.LocationID IS NULL THEN 1 ELSE 0 END) = 1 THEN 'Missing in SDIR'
-        ELSE 'Time mismatch in SDIR'
-    END AS Comments
-FROM PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_LOCATIONHOURS lh
+SELECT DISTINCT ls.*,
+       CASE
+          WHEN sdl.ExternalCode IS NULL
+          THEN
+             'Record Missing in OSS'
+          WHEN
+          COALESCE (st.ServiceTypeName, '') =
+              COALESCE (sdlft.featuretypename, '')
+          THEN
+             'Service Type Not matching in OSS'
+       END AS comments
+
+FROM PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_LOCATIONSERVICES ls
+LEFT JOIN PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_SERVICETYPES st
+ON ls.ServiceTypeID = st.ServiceTypeID
 LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_Location sdl
-    ON TRIM(lh.LocationID) = TRIM(sdl.ExternalCode)
-LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_LocationOperatingSchedule sdlos
-    ON sdl.LocationID = sdlos.LocationID
-   AND lh.DayOfWeekID = sdlos.WeekdayTypeID
-GROUP BY
-    lh.LocationID,
-    lh.DayOfWeekID,
-    lh.StartTime,
-    lh.EndTime
-HAVING
-    MAX(CASE 
-        WHEN sdlos.LocationID IS NOT NULL
-         AND sdlos.OpeningTime = CAST(lh.StartTime AS TIME)
-         AND sdlos.ClosingTime = CAST(lh.EndTime AS TIME)
-        THEN 1 ELSE 0
-    END) = 0  -- means no perfect match
-ORDER BY lh.LocationID, lh.DayOfWeekID;
+ON ls.LocationID = sdl.ExternalCode
+LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_LocationFeature sdlf
+ON sdl.LocationID = sdlf.LocationID
+LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_LocationFeatureItem sdlfi
+ON sdlf.FeatureId = sdlfi.LocationFeatureItemId
+LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_LocationFeatureType sdlft
+ON sdlft.LocationFeatureTypeId = sdlft.LocationFeatureTypeId
+WHERE 
+sdl.ExternalCode IS NULL
+OR COALESCE (st.ServiceTypeName, '') =
+              COALESCE (sdlft.featuretypename, '');
