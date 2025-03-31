@@ -11,7 +11,7 @@ SELECT DISTINCT
     END AS Comments
 FROM PROVIDERDATASERVICE_CORE_V.PROV_SPAYER_LOCATIONHOURS lh
 LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_Location sdl
-    ON lh.LocationID = sdl.ExternalCode
+    ON TRIM(lh.LocationID) = TRIM(sdl.ExternalCode)
 LEFT JOIN HSLABCORNERSTONE.PROV_SDIR_LocationOperatingSchedule sdlos
     ON sdl.LocationID = sdlos.LocationID
    AND lh.DayOfWeekID = sdlos.WeekdayTypeID
