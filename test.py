@@ -1,47 +1,26 @@
-REPLACE PROCEDURE HSLABCORNERSTONE.SP_FALLOUT_NPI_SPECIALITY()
-BEGIN
+SELECT 
+    A.NPI,
+    A.SPECIALTY,
+    CASE
+        WHEN C.NPI IS NULL THEN 'NPI Missing'
+        WHEN B.SPECIALTY IS NULL THEN 'Specialty Not Matching'
+        ELSE 'Matched'
+    END AS COMMENT
+FROM TABLE1 A
 
--- Step 0: Create a volatile table to collect fallout
-CREATE VOLATILE TABLE fallout_table (
-    NPI VARCHAR(20),
-    SpecialityName VARCHAR(100),
-    Comment VARCHAR(100)
-) ON COMMIT PRESERVE ROWS;
-
--- Step 1: Add NPI Missing records
-INSERT INTO fallout_table (NPI, SpecialityName, Comment)
-SELECT A.NPI, A.SpecialityName, 'NPI Missing'
-FROM HSLABCORNERSTONE.Directory_NPI_Universe A
+-- Step 1: Join for exact NPI + Specialty match (case-insensitive)
 LEFT JOIN (
-    SELECT DISTINCT NPI
-    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE
+    SELECT NPI, SPECIALTY
+    FROM TABLE2
     WHERE DomainName = 'sPayer'
 ) B
-ON A.NPI = B.NPI
-WHERE B.NPI IS NULL;
+  ON A.NPI = B.NPI
+ AND LOWER(A.SPECIALTY) = LOWER(B.SPECIALTY)
 
--- Step 2: Add Speciality Missing records
--- (NPI exists, but **none** of the specialties match, so include ALL specialties for that NPI from Table A)
-INSERT INTO fallout_table (NPI, SpecialityName, Comment)
-SELECT A.NPI, A.SpecialityName, 'Speciality Missing'
-FROM HSLABCORNERSTONE.Directory_NPI_Universe A
-WHERE A.NPI IN (
-    -- NPIs that exist in B under sPayer domain
+-- Step 2: Join for NPI presence check only
+LEFT JOIN (
     SELECT DISTINCT NPI
-    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE
+    FROM TABLE2
     WHERE DomainName = 'sPayer'
-)
-AND A.NPI NOT IN (
-    -- But NONE of the specialties match for this NPI
-    SELECT DISTINCT A2.NPI
-    FROM HSLABCORNERSTONE.Directory_NPI_Universe A2
-    INNER JOIN HSLABCORNERSTONE.SDIR_NPI_UNIVERSE B2
-        ON A2.NPI = B2.NPI
-       AND A2.SpecialityName = B2.SpecialityName
-    WHERE B2.DomainName = 'sPayer'
-);
-
--- Step 3: Return fallout results (optional if using it interactively)
-SELECT * FROM fallout_table;
-
-END;
+) C
+  ON A.NPI = C.NPI;
