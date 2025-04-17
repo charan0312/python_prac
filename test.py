@@ -1,26 +1,42 @@
+-- Full fallout classification using WHERE clause logic
 SELECT 
     A.NPI,
-    A.SPECIALTY,
-    CASE
-        WHEN C.NPI IS NULL THEN 'NPI Missing'
-        WHEN B.SPECIALTY IS NULL THEN 'Specialty Not Matching'
-        ELSE 'Matched'
-    END AS COMMENT
-FROM TABLE1 A
-
--- Step 1: Join for exact NPI + Specialty match (case-insensitive)
-LEFT JOIN (
-    SELECT NPI, SPECIALTY
-    FROM TABLE2
-    WHERE DomainName = 'sPayer'
-) B
-  ON A.NPI = B.NPI
- AND LOWER(A.SPECIALTY) = LOWER(B.SPECIALTY)
-
--- Step 2: Join for NPI presence check only
-LEFT JOIN (
+    A.SpecialityName,
+    'NPI Missing' AS COMMENT
+FROM HSLABCORNERSTONE.Directory_NPI_Universe A
+WHERE A.NPI NOT IN (
     SELECT DISTINCT NPI
-    FROM TABLE2
+    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE
     WHERE DomainName = 'sPayer'
-) C
-  ON A.NPI = C.NPI;
+)
+
+UNION ALL
+
+SELECT 
+    A.NPI,
+    A.SpecialityName,
+    'Speciality Not Matching' AS COMMENT
+FROM HSLABCORNERSTONE.Directory_NPI_Universe A
+WHERE A.NPI IN (
+    SELECT DISTINCT NPI
+    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE
+    WHERE DomainName = 'sPayer'
+)
+AND (A.NPI, LOWER(TRIM(A.SpecialityName))) NOT IN (
+    SELECT B.NPI, LOWER(TRIM(B.SpecialityName))
+    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE B
+    WHERE DomainName = 'sPayer'
+)
+
+UNION ALL
+
+SELECT 
+    A.NPI,
+    A.SpecialityName,
+    'Matched' AS COMMENT
+FROM HSLABCORNERSTONE.Directory_NPI_Universe A
+WHERE (A.NPI, LOWER(TRIM(A.SpecialityName))) IN (
+    SELECT B.NPI, LOWER(TRIM(B.SpecialityName))
+    FROM HSLABCORNERSTONE.SDIR_NPI_UNIVERSE B
+    WHERE DomainName = 'sPayer'
+);
