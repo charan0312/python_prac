@@ -1,4 +1,8 @@
-SELECT TOP 5 * 
+fix this query partition by
+
+select tst3.*
+,partitionby (tst3.npi) count(tst3.SpecialityName) as cnt from (
+select tst1.NPI, tst1.qnxt_specialty, tst2.NPI as npi2, tst2.SpecialityName
 FROM (
     SELECT a.npi, 
         CASE 
@@ -21,7 +25,7 @@ FROM (
         FROM HSLABCORNERSTONE.Directory_NPI_Universe npiu1
     ) a
 ) tst1
-LEFT JOIN (
+left JOIN (
     SELECT b.npi, 
         CASE 
             WHEN TRIM(b.SpecialityName) = '' THEN b.sdnu1_concat
@@ -45,5 +49,6 @@ LEFT JOIN (
         WHERE sdnu2.domainname = 'sPayer'
     ) b
 ) tst2
-ON tst1.qnxt_specialty = tst2.SpecialityName
+ON tst1.qnxt_specialty = tst2.SpecialityName ) tst3
+where tst3.npi = 1003001256
 ORDER BY 1;
